@@ -1,0 +1,5 @@
+{
+  "name": "claude-chat-notes",
+  "owner": { "name": "mark-quispe" },
+  "plugins": [{ "name": "chat-notes", "source": "./" }]
+}
