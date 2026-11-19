@@ -92,15 +92,37 @@ def chat(resaltadas, pie):
             p.append(texto(26, y, [("•", CLARO, False)], tam=14))
         p.append(texto(x, y, spans, tam=15 if tipo == "h" else 14))
         y += alto + (8 if tipo in ("p", "h") else 0)
-    # Cuadro de mensaje y pie con el boton del mod
-    p.append(f'<rect class="g" x="12.5" y="{PROMPT_Y - 40.5}" width="{CHAT_W - 25}" height="{PROMPT_H}" rx="10" '
+    # Cuadro de mensaje, como en la app: "+" a la izquierda y el micrófono a la derecha
+    caja_y = PROMPT_Y - 40
+    p.append(f'<rect class="g" x="12.5" y="{caja_y + .5}" width="{CHAT_W - 25}" height="{PROMPT_H}" rx="12" '
              f'fill="{CAJA}" stroke="{BORDE_CAJA}"/>')
-    p.append(texto(30, PROMPT_Y - 12, [("Responder…", PLACEHOLDER, False)], tam=14))
-    p.append(texto(22, PROMPT_Y + 34, [("Opus · Medio · Automático", TENUE, False)], tam=12.5))
+    p.append(texto(28, caja_y + 30, [("+", CLARO, False)], tam=22))
+    p.append(texto(52, caja_y + 28, [("Responder…", PLACEHOLDER, False)], tam=14))
+    mx = CHAT_W - 40
+    p.append(f'<rect class="g" x="{mx - 4}" y="{caja_y + 13}" width="8" height="13" rx="4" fill="none" '
+             f'stroke="{CLARO}" stroke-width="1.6"/>')
+    p.append(f'<path class="g" d="M{mx - 7} {caja_y + 22} a7 7 0 0 0 14 0 M{mx} {caja_y + 29} v4" fill="none" '
+             f'stroke="{CLARO}" stroke-width="1.6"/>')
+    # Pie, alineado a la derecha: el botón del mod, luego el modelo, el esfuerzo y el modo
+    base = PROMPT_Y + 33
+    fin = CHAT_W - 40
+    p.append(f'<circle class="g" cx="{CHAT_W - 24}" cy="{base - 5}" r="7" fill="none" stroke="#3A3937" '
+             f'stroke-width="2.4"/>')
+    p.append(f'<path class="g" d="M{CHAT_W - 24} {base - 12} a7 7 0 0 1 7 7" fill="none" stroke="{BLUE}" '
+             f'stroke-width="2.4"/>')
+    p.append(texto(fin, base, [("Opus 5.5", CLARO, False), ("  Medio", TENUE, False), ("   Automático", CLARO, False)],
+                   "end", 13))
+    modos = len("Opus 5.5  Medio   Automático") * 13 * 0.47
     etiqueta, tipo, estado = pie
-    w = ancho(etiqueta, 12.5) + 26
-    _, b = boton(CHAT_W - 12 - w, PROMPT_Y + 14, etiqueta, tipo, estado, 12.5)
-    p += b
+    w = ancho(etiqueta, 12.5) + 20
+    x = fin - modos - 12 - w
+    if tipo == "primario":
+        _, b = boton(x, base - 19, etiqueta, tipo, estado, 12.5)
+        p += b
+    else:
+        relleno = {"normal": "#2B2A28", "encima": "#3A3937", "pulsado": "#45443F"}[estado]
+        p.append(f'<rect class="g" x="{x:.0f}" y="{base - 19}" width="{w:.0f}" height="24" rx="6" fill="{relleno}"/>')
+        p.append(texto(x + w / 2, base - 2, [(etiqueta, TENUE, False)], "middle", 12.5))
     return p
 
 
