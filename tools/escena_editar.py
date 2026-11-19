@@ -2,10 +2,11 @@
 
 Uso: python tools/escena_editar.py
 
-Historia: pulsas Editar en una nota con viñetas y una tabla. Tocas el lápiz de una viñeta: solo esa
-línea se abre en Markdown, el resto sigue formateado; cambias el precio y pulsas Listo. Luego tocas el
-lápiz de la tabla: se abre en Markdown con su vista previa debajo, que cambia mientras escribes.
-Pulsas Terminar y la nota queda actualizada. Todos los datos son inventados.
+Historia: Claude responde los planes de mi-app con viñetas y una tabla; las resaltas y pulsas Guardar
+resaltado, y aparece la nota con su tabla. Pulsas Editar y tocas el lápiz de una viñeta: solo esa línea
+se abre en Markdown y cambias el precio. Luego tocas el lápiz de la tabla: se abre en Markdown con su
+vista previa debajo, que cambia mientras escribes. Pulsas Terminar y la nota queda actualizada.
+Todos los datos son inventados.
 """
 import json
 import subprocess
@@ -34,7 +35,7 @@ FUENTE = "'Segoe UI','Segoe UI Emoji','Apple Color Emoji',system-ui,-apple-syste
 # La tarjeta va en el panel de la demo principal, a su tamaño real
 _fuente = (RAIZ / "tools" / "escena_demo.py").read_text(encoding="utf-8")
 DEMO = {"__file__": str(RAIZ / "tools" / "escena_demo.py")}
-exec(_fuente[:_fuente.index("cuadros = []")], DEMO)
+exec(_fuente[:_fuente.index("cuadros = []")].replace("¿Qué falta para lanzar la app?", "¿Cuánto cuestan los planes de mi-app?"), DEMO)
 TW, TH = DEMO["W"], DEMO["H"]
 PX, PW = DEMO["PX"], DEMO["PW"]
 ARRIBA = 118                # donde empieza la tarjeta, bajo el botón Ordenar
@@ -125,8 +126,11 @@ def campo(y, lineas, etiqueta="listo"):
 
 # --- Un cuadro --------------------------------------------------------------------------------
 
+ALTO = {"tarjeta": 0}      # alto de la última tarjeta dibujada
+
+
 def cuadro(modo, pro_viñeta="$12", pro_tabla="$12", escrito=None, abierto=None, boton_estado=None,
-           lapiz_en=None, editar_estado="normal"):
+           lapiz_en=None, editar_estado="normal", titulo=True):
     p = [f'<rect class="g" x="0" y="0" width="{W}" height="{H}" rx="10" fill="{COLUMNA}"/>']
     y = 12
     alto_total_inicio = y
@@ -136,7 +140,8 @@ def cuadro(modo, pro_viñeta="$12", pro_tabla="$12", escrito=None, abierto=None,
     if modo == "edicion":
         yy += 8
     else:
-        contenido.append(texto(IX, yy, [("NOTA 02", CLARO, True), (" — PLANES Y PRECIOS", MUTED, False)], tam=12.5))
+        cabeza = [("NOTA 03", CLARO, True)] + ([(" — PLANES Y PRECIOS", MUTED, False)] if titulo else [])
+        contenido.append(texto(IX, yy, cabeza, tam=12.5))
         ec = {"normal": MUTED, "encima": CLARO, "pulsado": CLARO}[editar_estado]
         contenido.append(texto(X + CW - 14, yy, [("Editar", ec, False)], "end", 12.5))
         contenido.append(f'<rect x="{IX}" y="{yy + 9}" width="{CW - 100}" height="1" fill="{CARD_BORDER}"/>')
@@ -211,6 +216,7 @@ def cuadro(modo, pro_viñeta="$12", pro_tabla="$12", escrito=None, abierto=None,
         contenido.append(f'<rect class="g" x="{bx}" y="{yy - 14}" width="34" height="26" rx="6" fill="{SECUNDARIO}"/>')
         contenido.append(texto(bx + 17, yy + 4, [(ic, TENUE, False)], "middle", 12))
     yy += 22
+    ALTO["tarjeta"] = yy - alto_total_inicio
     # El relleno de la tarjeta es el mismo en todos los cuadros (llega hasta abajo) y una franja del color
     # del fondo lo corta donde termina la tarjeta: así lo que se repite entre cuadros nunca queda tapado.
     p.append(f'<rect class="g" x="{X}" y="{alto_total_inicio}" width="{CW}" height="{H - 10 - alto_total_inicio}" '
@@ -222,27 +228,57 @@ def cuadro(modo, pro_viñeta="$12", pro_tabla="$12", escrito=None, abierto=None,
     return p + contenido
 
 
-# --- La toma completa: el chat a la izquierda y el panel con la tarjeta a la derecha -----------------
-# Reutiliza el chat y los botones de la demo principal (tools/escena_demo.py), para que las dos
-# animaciones se vean iguales.
+# --- La toma completa: el chat a la izquierda y el panel a la derecha ------------------------------
+# Reutiliza el chat, las tarjetas y los botones de la demo principal (tools/escena_demo.py), con otra
+# respuesta en el chat: los planes de mi-app, con viñetas y una tabla.
+DEMO["RESPUESTA"] = [
+    ("p", [("Estos son los planes de mi-app por ahora:", CLARO, False)]),
+    ("li", [("Precio del plan ", CLARO, False), ("Pro", CLARO, True), (": $12", CLARO, False)]),
+    ("li", [("Prueba gratis de ", CLARO, False), ("7 días", CLARO, True)]),
+]
+CHAT_TABLA_Y = 150
 
 
-def toma(**estado):
+def chat(resaltado, pie):
+    t = DEMO["texto"]
+    partes = DEMO["chat"]({1, 2} if resaltado else set(), pie)
+    # La tabla de la respuesta, y la pregunta final de Claude
+    for f, (a, b) in enumerate(filas("$12")):
+        y = CHAT_TABLA_Y + f * 28
+        for c, (x, w, valor) in enumerate(((22, 150, a), (174, 120, b))):
+            relleno = DEMO["SELECCION"] if resaltado else (CELDA_CABEZA if f == 0 else CELDA)
+            color = "#FFFFFF" if resaltado else CLARO
+            partes.append(f'<rect x="{x}" y="{y}" width="{w}" height="26" fill="{relleno}"/>')
+            partes.append(t(x + 10, y + 18, [(valor, color, f == 0)], tam=13.5))
+    partes.append(t(22, CHAT_TABLA_Y + 3 * 28 + 30, [("¿Quieres que agregue un plan anual?", CLARO, False)], tam=14))
+    return partes
+
+
+def toma(chat_resaltado=False, pie="📝 Apuntes · 2", pie_tipo="secundario", pie_estado="normal",
+         nota=True, **estado):
     t, b = DEMO["texto"], DEMO["boton"]
-    partes = DEMO["chat"](set(), ("📝 Apuntes · 2", "secundario", "normal"))
+    partes = chat(chat_resaltado, (pie, pie_tipo, pie_estado))
     partes += [f'<rect class="g" x="{PX - 6}" y="0" width="{TW - PX + 6}" height="{TH}" fill="{COLUMNA}"/>',
                f'<rect x="{PX - 6}" y="0" width="1" height="{TH}" fill="{CARD_BORDER}"/>']
     # Con la tabla abierta la tarjeta crece: el panel se desplaza hacia arriba, como en la app
     bajar = -96 if estado.get("abierto") == "tabla" else 0
-    panel = [t(PX + 2, 58, [("MI-APP", CLARO, True)], tam=13.5),
-             t(PX + 2, 76, [("2 apuntes · sin ordenar", MUTED, False)], tam=12)]
-    panel += b(PX + 2, 88, "Ordenar", "primario", "normal", 12.5)[1]
-    panel += cuadro(**estado)[1:]   # la tarjeta, sin el fondo propio de la escena
-    partes.append(f'<g transform="translate(0 {ARRIBA - 12 + bajar})">'
-                  f'<g transform="translate(0 {12 - ARRIBA})">{"".join(panel[:4])}</g>{"".join(panel[4:])}</g>')
-    # La barra de título del panel queda fija encima
-    # (va dentro de un grupo propio de cada cuadro: si se repitiera igual en todos, armar_svg la dibujaría
-    # una sola vez debajo de todo y el panel desplazado la taparía)
+    n = 3 if nota else 2
+    cabeza = [t(PX + 2, 58, [("MI-APP", CLARO, True)], tam=13.5),
+              t(PX + 2, 76, [(f"{n} apuntes · sin ordenar", MUTED, False)], tam=12)]
+    cabeza += b(PX + 2, 88, "Ordenar", "primario", "normal", 12.5)[1]
+    y = ARRIBA
+    tarjeta = ""
+    if nota:
+        tarjeta = f'<g transform="translate(0 {ARRIBA - 12})">{"".join(cuadro(**estado)[1:])}</g>'
+        y = ARRIBA + ALTO["tarjeta"] + 10
+    otras = []
+    for num, tit, lineas, hora in reversed(DEMO["NOTAS"]):
+        alto, partes_nota = DEMO["tarjeta"](y, num, tit, lineas, hora)
+        otras += partes_nota
+        y += alto + 10
+    partes.append(f'<g transform="translate(0 {bajar})">{"".join(cabeza)}{tarjeta}{"".join(otras)}</g>')
+    # La barra de título del panel queda fija encima (en un grupo propio de cada cuadro: si se repitiera
+    # igual en todos, armar_svg la dibujaría una sola vez debajo de todo y el panel desplazado la taparía)
     partes.append(f'<g data-desplazado="{bajar}"><rect x="{PX - 5}" y="0" width="{TW - PX + 5}" height="38" '
                   f'fill="{COLUMNA}"/>{t(PX + 2, 26, [("Apuntes", CLARO, False)], tam=13.5)}</g>')
     return partes
@@ -255,35 +291,45 @@ def pon(ms, **estado):
     cuadros.append({"ms": ms, "partes": toma(**estado)})
 
 
-# La nota tal cual; pulsas Editar
-pon(1500, modo="normal")
-pon(400, modo="normal", editar_estado="encima")
-pon(150, modo="normal", editar_estado="pulsado")
+# Resaltas las viñetas y la tabla de la respuesta, y las guardas con el botón del pie
+pon(1400, nota=False, modo="normal")
+pon(1100, nota=False, modo="normal", chat_resaltado=True, pie="📝 Guardar resaltado", pie_tipo="primario")
+pon(400, nota=False, modo="normal", chat_resaltado=True, pie="📝 Guardar resaltado", pie_tipo="primario",
+    pie_estado="encima")
+pon(150, nota=False, modo="normal", chat_resaltado=True, pie="📝 Guardar resaltado", pie_tipo="primario",
+    pie_estado="pulsado")
+# La nota aparece con su formato, y un momento después su título corto
+uno = dict(pie="📝 Apuntes · 3")
+pon(900, **uno, modo="normal", titulo=False)
+pon(1300, **uno, modo="normal")
+# Pulsas Editar
+pon(400, **uno, modo="normal", editar_estado="encima")
+pon(150, **uno, modo="normal", editar_estado="pulsado")
 # Modo edición: cada bloque con su lápiz
-pon(1400, modo="edicion")
-pon(450, modo="edicion", lapiz_en="v1")
+pon(1300, **uno, modo="edicion")
+pon(450, **uno, modo="edicion", lapiz_en="v1")
 # Se abre solo la viñeta y cambias $12 por $15
 crudo = "- Precio del plan **Pro**: $1"
-pon(900, modo="edicion", abierto="v1")
-pon(350, modo="edicion", abierto="v1", escrito=crudo)
-pon(500, modo="edicion", abierto="v1", escrito=crudo + "5")
-pon(350, modo="edicion", abierto="v1", escrito=crudo + "5", boton_estado="encima")
-pon(150, modo="edicion", abierto="v1", escrito=crudo + "5", boton_estado="pulsado")
-pon(1200, modo="edicion", pro_viñeta="$15")
+pon(900, **uno, modo="edicion", abierto="v1")
+pon(350, **uno, modo="edicion", abierto="v1", escrito=crudo)
+pon(500, **uno, modo="edicion", abierto="v1", escrito=crudo + "5")
+pon(350, **uno, modo="edicion", abierto="v1", escrito=crudo + "5", boton_estado="encima")
+pon(150, **uno, modo="edicion", abierto="v1", escrito=crudo + "5", boton_estado="pulsado")
+pon(1100, **uno, modo="edicion", pro_viñeta="$15")
 # Ahora la tabla: se abre con su vista previa, que cambia mientras escribes
-pon(450, modo="edicion", pro_viñeta="$15", lapiz_en="tabla")
-pon(1300, modo="edicion", pro_viñeta="$15", abierto="tabla")
-pon(350, modo="edicion", pro_viñeta="$15", abierto="tabla", escrito="| Pro | $1 |")
-pon(1400, modo="edicion", pro_viñeta="$15", abierto="tabla", escrito="| Pro | $15 |")
-pon(350, modo="edicion", pro_viñeta="$15", abierto="tabla", escrito="| Pro | $15 |", boton_estado="encima")
-pon(150, modo="edicion", pro_viñeta="$15", abierto="tabla", escrito="| Pro | $15 |", boton_estado="pulsado")
-pon(1100, modo="edicion", pro_viñeta="$15", pro_tabla="$15")
+pon(450, **uno, modo="edicion", pro_viñeta="$15", lapiz_en="tabla")
+pon(1200, **uno, modo="edicion", pro_viñeta="$15", abierto="tabla")
+pon(350, **uno, modo="edicion", pro_viñeta="$15", abierto="tabla", escrito="| Pro | $1 |")
+pon(1400, **uno, modo="edicion", pro_viñeta="$15", abierto="tabla", escrito="| Pro | $15 |")
+pon(350, **uno, modo="edicion", pro_viñeta="$15", abierto="tabla", escrito="| Pro | $15 |", boton_estado="encima")
+pon(150, **uno, modo="edicion", pro_viñeta="$15", abierto="tabla", escrito="| Pro | $15 |", boton_estado="pulsado")
+pon(1000, **uno, modo="edicion", pro_viñeta="$15", pro_tabla="$15")
 # Terminar
-pon(350, modo="edicion", pro_viñeta="$15", pro_tabla="$15", boton_estado="encima")
-pon(150, modo="edicion", pro_viñeta="$15", pro_tabla="$15", boton_estado="pulsado")
-pon(3000, modo="normal", pro_viñeta="$15", pro_tabla="$15")
+pon(350, **uno, modo="edicion", pro_viñeta="$15", pro_tabla="$15", boton_estado="encima")
+pon(150, **uno, modo="edicion", pro_viñeta="$15", pro_tabla="$15", boton_estado="pulsado")
+pon(3000, **uno, modo="normal", pro_viñeta="$15", pro_tabla="$15")
 
-escena = {"ancho": TW, "alto": TH, "quieto": 14, "cuadros": cuadros}
+escena = {"ancho": TW, "alto": TH, "quieto": 8, "cuadros": cuadros}
 with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as t:
     json.dump(escena, t, ensure_ascii=False)
 subprocess.run([sys.executable, str(RAIZ / "tools" / "armar_svg.py"), str(RAIZ / "docs" / "editar.svg"), t.name,
