@@ -43,6 +43,9 @@ Pulsa **Editar** y toca el **✎** junto a la parte que quieras cambiar: solo es
 > [!NOTE]
 > **¿Dónde se abre el panel?** Pulsa **📝 Apuntes** en el pie y se abre al costado del chat. En la app de escritorio puedes moverlo a la izquierda desde el menú del panel, o agrandarlo con **⤢** mientras editas una nota. También se abre y cierra escribiendo `/apuntes`.
 
+> [!NOTE]
+> **Recibe las mejoras solas.** Claude Code no actualiza este plugin por su cuenta hasta que lo actives. En una sesión de Claude Code en la terminal escribe `/plugin`, entra a **Marketplaces**, elige **claude-chat-notes** y activa la actualización automática. Desde entonces, cada versión nueva se descarga al abrir Claude Code y se usa en la siguiente sesión.
+
 ### Requisitos
 
 - Claude Code: la app de escritorio, donde se ve como en la animación, o la terminal, donde se ve con texto en lugar de tarjetas.
