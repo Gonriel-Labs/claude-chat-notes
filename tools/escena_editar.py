@@ -28,6 +28,7 @@ PRIMARIO, PRIMARIO_TXT = "#F4F3EE", "#1C1C1B"
 SECUNDARIO, SECUNDARIO_TXT = "#3A3937", "#D6D4CC"
 FOCO, CAMPO = "#3B82F6", "#2A2A28"
 CELDA, CELDA_CABEZA = "#2C2C2A", "#333331"
+SIMBOLO = "'Segoe UI Symbol','DejaVu Sans',sans-serif"
 FUENTE = "'Segoe UI','Segoe UI Emoji','Apple Color Emoji',system-ui,-apple-system,sans-serif"
 
 W, H = 480, 450
@@ -62,7 +63,8 @@ def lapiz(y, estado="normal"):
     p = []
     if estado != "normal":
         p.append(f'<rect class="g" x="{X + CW - 34}" y="{y - 15}" width="22" height="20" rx="5" fill="#3A3937"/>')
-    p.append(texto(X + CW - 23, y, [("✎", color, False)], "middle", 14))
+    p.append(f'<text x="{X + CW - 23}" y="{y}" font-size="14" font-family="{SIMBOLO}" text-anchor="middle" '
+             f'fill="{color}">✎</text>')
     return p
 
 
@@ -84,8 +86,9 @@ def md_tabla(precio_pro):
 
 def tabla(y, datos):
     """Una tabla formateada como la dibuja la app; devuelve su alto."""
-    p, col = [], [IX, IX + 150]
-    w = [148, 120]
+    total = CW - 28 - 34
+    w = [round(total * 0.4) - 2, total - round(total * 0.4)]
+    p, col = [], [IX, IX + w[0] + 2]
     for f, (a, b) in enumerate(datos):
         relleno = CELDA_CABEZA if f == 0 else CELDA
         for c, valor in enumerate((a, b)):
@@ -115,14 +118,18 @@ def cuadro(modo, pro_viñeta="$12", pro_tabla="$12", escrito=None, abierto=None,
     alto_total_inicio = y
     contenido = []
     yy = y + 24
-    # Encabezado de la tarjeta
-    contenido.append(texto(IX, yy, [("NOTA 02", CLARO, True), (" — PLANES Y PRECIOS", MUTED, False)], tam=12.5))
-    ec = {"normal": MUTED, "encima": CLARO, "pulsado": CLARO}[editar_estado]
-    contenido.append(texto(X + CW - 14, yy, [("Editar", ec, False)], "end", 12.5))
-    contenido.append(f'<rect x="{IX}" y="{yy + 9}" width="{CW - 100}" height="1" fill="{CARD_BORDER}"/>')
-    yy += 34
+    # Encabezado de la tarjeta; al editar, la app lo oculta
+    if modo == "edicion":
+        yy += 8
+    else:
+        contenido.append(texto(IX, yy, [("NOTA 02", CLARO, True), (" — PLANES Y PRECIOS", MUTED, False)], tam=12.5))
+        ec = {"normal": MUTED, "encima": CLARO, "pulsado": CLARO}[editar_estado]
+        contenido.append(texto(X + CW - 14, yy, [("Editar", ec, False)], "end", 12.5))
+        contenido.append(f'<rect x="{IX}" y="{yy + 9}" width="{CW - 100}" height="1" fill="{CARD_BORDER}"/>')
+        yy += 34
     if modo == "edicion" and abierto is None:
-        contenido.append(texto(IX, yy, [("Toca ✎ junto al párrafo que quieras cambiar.", MUTED, False)], tam=12.5))
+        contenido.append(f'<text x="{IX}" y="{yy}" font-size="12.5" font-family="{FUENTE}" fill="{MUTED}">Toca '
+                         f'<tspan font-family="{SIMBOLO}">✎</tspan> junto al párrafo que quieras cambiar.</text>')
         yy += 28
 
     bloques = ["v1", "v2", "tabla"]
@@ -189,8 +196,14 @@ def cuadro(modo, pro_viñeta="$12", pro_tabla="$12", escrito=None, abierto=None,
         contenido.append(f'<rect class="g" x="{bx}" y="{yy - 14}" width="34" height="26" rx="6" fill="{SECUNDARIO}"/>')
         contenido.append(texto(bx + 17, yy + 4, [(ic, TENUE, False)], "middle", 12))
     yy += 22
-    p.append(f'<rect class="g" x="{X + .5}" y="{alto_total_inicio + .5}" width="{CW - 1}" height="{yy - alto_total_inicio}" '
-             f'rx="10" fill="{CARD_BG}" stroke="{BLUE if modo == "edicion" else CARD_BORDER}"/>')
+    # El relleno de la tarjeta es el mismo en todos los cuadros (llega hasta abajo) y una franja del color
+    # del fondo lo corta donde termina la tarjeta: así lo que se repite entre cuadros nunca queda tapado.
+    p.append(f'<rect class="g" x="{X}" y="{alto_total_inicio}" width="{CW}" height="{H - 10 - alto_total_inicio}" '
+             f'rx="10" fill="{CARD_BG}"/>')
+    contenido.insert(0, f'<rect x="{X - 1}" y="{yy + 1}" width="{CW + 2}" height="{H - yy}" fill="{COLUMNA}"/>')
+    contenido.insert(1, f'<rect class="g" x="{X + .5}" y="{alto_total_inicio + .5}" width="{CW - 1}" '
+                        f'height="{yy - alto_total_inicio}" rx="10" fill="none" '
+                        f'stroke="{BLUE if modo == "edicion" else CARD_BORDER}"/>')
     return p + contenido
 
 

@@ -143,7 +143,7 @@ ORDENADO = [("h", "Antes de publicar"), ("li", "Pruebas del carrito en verde"),
 
 
 def tarjeta(y, num, titulo, lineas, hora, md=None, resaltada=False):
-    alto = 30 + (len(md) if md else len(lineas)) * 19 + 26
+    alto = 30 + (len(md) if md else len(lineas)) * 19 + 32
     borde = BLUE if resaltada else CARD_BORDER
     p = [f'<rect class="g" x="{PX + 0.5}" y="{y + 0.5}" width="{PW - 1}" height="{alto}" rx="9" '
          f'fill="{CARD_BG}" stroke="{borde}"/>']
@@ -163,7 +163,10 @@ def tarjeta(y, num, titulo, lineas, hora, md=None, resaltada=False):
             p.append(texto(PX + 12, yy, [(t, CLARO, False)], tam=12.5))
         yy += 19
     p.append(texto(PX + 12, y + alto - 9, [(hora, MUTED, False)], tam=11.5))
-    p.append(texto(PX + PW - 14, y + alto - 9, [("📋   🗑", TENUE, False)], "end", 12))
+    for k, ic in enumerate(("📋", "🗑")):
+        bx = PX + PW - 78 + k * 36
+        p.append(f'<rect class="g" x="{bx}" y="{y + alto - 26}" width="30" height="22" rx="6" fill="{SECUNDARIO}"/>')
+        p.append(texto(bx + 15, y + alto - 10, [(ic, TENUE, False)], "middle", 11.5))
     return alto, p
 
 
