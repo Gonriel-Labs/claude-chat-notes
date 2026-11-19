@@ -35,7 +35,7 @@ Pulsa **Editar** y toca el **✎** junto a la parte que quieras cambiar: solo es
 > Abre Claude Code (la app de escritorio o la terminal), copia este mensaje, pégalo en el chat y envíalo:
 >
 > ```text
-> Instala el plugin chat-notes del marketplace de GitHub mark-quispe/claude-chat-notes, con alcance de usuario.
+> Instala el plugin chat-notes del marketplace de GitHub Gonriel-Labs/claude-chat-notes, con alcance de usuario, y activa la actualización automática de ese marketplace (autoUpdate).
 > ```
 >
 > Claude hace el resto. Te pedirá permiso antes de ejecutar los comandos: acéptalo. Cuando termine, **abre una sesión nueva**: verás **📝 Apuntes · 0** abajo a la derecha del cuadro de texto. Resalta cualquier parte de una respuesta y pulsa **📝 Guardar resaltado** para guardar tu primera nota.
@@ -57,18 +57,18 @@ Pulsa **Editar** y toca el **✎** junto a la parte que quieras cambiar: solo es
 En el prompt de una sesión de Claude Code en la terminal:
 
 ```
-/plugin install chat-notes --marketplace mark-quispe/claude-chat-notes
+/plugin install chat-notes --marketplace Gonriel-Labs/claude-chat-notes
 ```
 
-Responde `y` para agregar el marketplace y elige el alcance (usuario, para todas tus sesiones).
+Responde `y` para agregar el marketplace y elige el alcance (usuario, para todas tus sesiones). Para que se actualice solo: `/plugin` → pestaña **Marketplaces** → `claude-chat-notes` → activa la actualización automática.
 
 Desde una terminal:
 
 ```bash
-claude plugin install chat-notes --marketplace mark-quispe/claude-chat-notes
+claude plugin install chat-notes --marketplace Gonriel-Labs/claude-chat-notes
 ```
 
-En la app de escritorio, donde `/plugin` no funciona: haz clic en **+** junto al cuadro de texto, luego **Plugins**, **Add marketplace** con `mark-quispe/claude-chat-notes`, y después **Add plugin**.
+En la app de escritorio, donde `/plugin` no funciona: haz clic en **+** junto al cuadro de texto, luego **Plugins**, **Add marketplace** con `Gonriel-Labs/claude-chat-notes`, y después **Add plugin**.
 
 El botón **📝 Apuntes** aparece en las sesiones que abras después de instalarlo.
 
