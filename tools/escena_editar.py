@@ -1,4 +1,4 @@
-"""Genera docs/editar.svg: cómo se edita una nota, reconstruido con los colores y textos de hooks/register.tsx.
+"""Genera docs/editar.svg: cómo se edita una nota, en la misma toma que la demo principal (chat y panel).
 
 Uso: python tools/escena_editar.py
 
@@ -31,12 +31,19 @@ CELDA, CELDA_CABEZA = "#2C2C2A", "#333331"
 SIMBOLO = "'Segoe UI Symbol','DejaVu Sans',sans-serif"
 FUENTE = "'Segoe UI','Segoe UI Emoji','Apple Color Emoji',system-ui,-apple-system,sans-serif"
 
-W, H = 480, 450
-X, CW = 10, W - 20          # tarjeta
-IX = X + 14                 # sangría del contenido
+# La tarjeta va en el panel de la demo principal, a su tamaño real
+_fuente = (RAIZ / "tools" / "escena_demo.py").read_text(encoding="utf-8")
+DEMO = {"__file__": str(RAIZ / "tools" / "escena_demo.py")}
+exec(_fuente[:_fuente.index("cuadros = []")], DEMO)
+TW, TH = DEMO["W"], DEMO["H"]
+PX, PW = DEMO["PX"], DEMO["PW"]
+ARRIBA = 118                # donde empieza la tarjeta, bajo el botón Ordenar
+W, H = TW, TH - ARRIBA
+X, CW = PX, PW              # tarjeta
+IX = X + 12                 # sangría del contenido
 
 
-def texto(x, y, spans, ancla="start", tam=13.5):
+def texto(x, y, spans, ancla="start", tam=12.5):
     negrita = ' font-weight="600"'
     partes = "".join(f'<tspan fill="{c}"{negrita if b else ""}>{escape(t)}</tspan>' for t, c, b in spans)
     return f'<text x="{x}" y="{y}" font-size="{tam}" font-family="{FUENTE}" text-anchor="{ancla}">{partes}</text>'
@@ -153,13 +160,13 @@ def cuadro(modo, pro_viñeta="$12", pro_tabla="$12", escrito=None, abierto=None,
                 contenido += b1 + b2
                 yy += 44
             else:
-                contenido.append(texto(IX, yy, spans, tam=13.5))
+                contenido.append(texto(IX, yy, spans, tam=12.5))
                 if modo == "edicion" and abierto is None:
                     contenido += lapiz(yy, "encima" if lapiz_en == "v1" else "normal")
                 yy += 28
         elif nombre == "v2":
             contenido.append(texto(IX, yy, [("•  ", CLARO, False), ("Prueba gratis de ", CLARO, False),
-                                             ("7 días", CLARO, True)], tam=13.5))
+                                             ("7 días", CLARO, True)], tam=12.5))
             if modo == "edicion" and abierto is None:
                 contenido += lapiz(yy)
             yy += 22
@@ -215,11 +222,37 @@ def cuadro(modo, pro_viñeta="$12", pro_tabla="$12", escrito=None, abierto=None,
     return p + contenido
 
 
+# --- La toma completa: el chat a la izquierda y el panel con la tarjeta a la derecha -----------------
+# Reutiliza el chat y los botones de la demo principal (tools/escena_demo.py), para que las dos
+# animaciones se vean iguales.
+
+
+def toma(**estado):
+    t, b = DEMO["texto"], DEMO["boton"]
+    partes = DEMO["chat"](set(), ("📝 Apuntes · 2", "secundario", "normal"))
+    partes += [f'<rect class="g" x="{PX - 6}" y="0" width="{TW - PX + 6}" height="{TH}" fill="{COLUMNA}"/>',
+               f'<rect x="{PX - 6}" y="0" width="1" height="{TH}" fill="{CARD_BORDER}"/>']
+    # Con la tabla abierta la tarjeta crece: el panel se desplaza hacia arriba, como en la app
+    bajar = -96 if estado.get("abierto") == "tabla" else 0
+    panel = [t(PX + 2, 58, [("MI-APP", CLARO, True)], tam=13.5),
+             t(PX + 2, 76, [("2 apuntes · sin ordenar", MUTED, False)], tam=12)]
+    panel += b(PX + 2, 88, "Ordenar", "primario", "normal", 12.5)[1]
+    panel += cuadro(**estado)[1:]   # la tarjeta, sin el fondo propio de la escena
+    partes.append(f'<g transform="translate(0 {ARRIBA - 12 + bajar})">'
+                  f'<g transform="translate(0 {12 - ARRIBA})">{"".join(panel[:4])}</g>{"".join(panel[4:])}</g>')
+    # La barra de título del panel queda fija encima
+    # (va dentro de un grupo propio de cada cuadro: si se repitiera igual en todos, armar_svg la dibujaría
+    # una sola vez debajo de todo y el panel desplazado la taparía)
+    partes.append(f'<g data-desplazado="{bajar}"><rect x="{PX - 5}" y="0" width="{TW - PX + 5}" height="38" '
+                  f'fill="{COLUMNA}"/>{t(PX + 2, 26, [("Apuntes", CLARO, False)], tam=13.5)}</g>')
+    return partes
+
+
 cuadros = []
 
 
 def pon(ms, **estado):
-    cuadros.append({"ms": ms, "partes": cuadro(**estado)})
+    cuadros.append({"ms": ms, "partes": toma(**estado)})
 
 
 # La nota tal cual; pulsas Editar
@@ -250,7 +283,7 @@ pon(350, modo="edicion", pro_viñeta="$15", pro_tabla="$15", boton_estado="encim
 pon(150, modo="edicion", pro_viñeta="$15", pro_tabla="$15", boton_estado="pulsado")
 pon(3000, modo="normal", pro_viñeta="$15", pro_tabla="$15")
 
-escena = {"ancho": W, "alto": H, "quieto": 14, "cuadros": cuadros}
+escena = {"ancho": TW, "alto": TH, "quieto": 14, "cuadros": cuadros}
 with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as t:
     json.dump(escena, t, ensure_ascii=False)
 subprocess.run([sys.executable, str(RAIZ / "tools" / "armar_svg.py"), str(RAIZ / "docs" / "editar.svg"), t.name,

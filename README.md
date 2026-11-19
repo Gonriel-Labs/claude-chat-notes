@@ -24,7 +24,7 @@ Un mod que te deja guardar fragmentos de las respuestas de Claude como notas, en
 Pulsa **Editar** y toca el **✎** junto a la parte que quieras cambiar: solo esa viñeta, párrafo o tabla se abre en Markdown, y el resto de la nota sigue formateado. Las tablas muestran una vista previa que cambia mientras escribes. Para cambios grandes, **Editar todo** abre la nota completa.
 
 <p align="center">
-  <img src="docs/editar.svg" width="480" alt="Una nota con dos viñetas y una tabla de planes y precios. Se pulsa Editar y aparece un lápiz junto a cada parte. Al tocar el de la primera viñeta, solo esa línea se abre en Markdown y el precio del plan Pro cambia de 12 a 15 dólares; el resto sigue formateado. Luego se toca el lápiz de la tabla: se abre en Markdown con su vista previa debajo, que muestra el nuevo precio mientras se escribe. Al pulsar Terminar, la nota queda actualizada.">
+  <img src="docs/editar.svg" width="760" alt="Una nota con dos viñetas y una tabla de planes y precios. Se pulsa Editar y aparece un lápiz junto a cada parte. Al tocar el de la primera viñeta, solo esa línea se abre en Markdown y el precio del plan Pro cambia de 12 a 15 dólares; el resto sigue formateado. Luego se toca el lápiz de la tabla: se abre en Markdown con su vista previa debajo, que muestra el nuevo precio mientras se escribe. Al pulsar Terminar, la nota queda actualizada.">
 </p>
 
 ## Instalación
