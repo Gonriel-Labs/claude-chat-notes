@@ -58,13 +58,20 @@ def boton(x, y, etiqueta, tipo="secundario", estado="normal", tam=13):
                texto(x + w / 2, y + 19, [(etiqueta, color, False)], "middle", tam)]
 
 
+def icono_lapiz(cx, cy, color):
+    """El lápiz ✎ dibujado como figura: si fuera texto, algunos navegadores lo pintan como emoji amarillo."""
+    return (f'<g class="g" transform="translate({cx} {cy}) rotate(45)" fill="{color}">'
+            f'<rect x="-1.9" y="-6.5" width="3.8" height="2" rx=".6"/>'
+            f'<rect x="-1.9" y="-4" width="3.8" height="7"/>'
+            f'<path d="M-1.9 3.6 L0 6.8 L1.9 3.6 Z"/></g>')
+
+
 def lapiz(y, estado="normal"):
     color = {"normal": MUTED, "encima": CLARO, "pulsado": CLARO}[estado]
     p = []
     if estado != "normal":
         p.append(f'<rect class="g" x="{X + CW - 34}" y="{y - 15}" width="22" height="20" rx="5" fill="#3A3937"/>')
-    p.append(f'<text x="{X + CW - 23}" y="{y}" font-size="14" font-family="{SIMBOLO}" text-anchor="middle" '
-             f'fill="{color}">✎</text>')
+    p.append(icono_lapiz(X + CW - 23, y - 5, color))
     return p
 
 
@@ -128,8 +135,9 @@ def cuadro(modo, pro_viñeta="$12", pro_tabla="$12", escrito=None, abierto=None,
         contenido.append(f'<rect x="{IX}" y="{yy + 9}" width="{CW - 100}" height="1" fill="{CARD_BORDER}"/>')
         yy += 34
     if modo == "edicion" and abierto is None:
-        contenido.append(f'<text x="{IX}" y="{yy}" font-size="12.5" font-family="{FUENTE}" fill="{MUTED}">Toca '
-                         f'<tspan font-family="{SIMBOLO}">✎</tspan> junto al párrafo que quieras cambiar.</text>')
+        contenido.append(texto(IX, yy, [("Toca", MUTED, False)], tam=12.5))
+        contenido.append(icono_lapiz(IX + 38, yy - 5, MUTED))
+        contenido.append(texto(IX + 48, yy, [("junto al párrafo que quieras cambiar.", MUTED, False)], tam=12.5))
         yy += 28
 
     bloques = ["v1", "v2", "tabla"]
