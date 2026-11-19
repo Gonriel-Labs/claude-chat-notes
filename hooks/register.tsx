@@ -128,7 +128,10 @@ async function save($: EngineInterface, fn: (l: Libreta) => Libreta) {
 // líneas en las respuestas del chat y devuelve el Markdown original, para que
 // la nota se vea con su formato y sea fácil de editar.
 const plano = (line: string) =>
-  line
+  // Una fila de tabla se resalta como sus celdas una tras otra; la línea de
+  // guiones que separa el encabezado no se ve.
+  (/^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(line) ? '' : line)
+    .replace(/^\s*\|(.*)\|\s*$/, (_, celdas: string) => celdas.replace(/\|/g, ' '))
     .replace(/^\s*(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)?/, '')
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/[*_`~]/g, '')

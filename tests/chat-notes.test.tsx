@@ -421,3 +421,24 @@ test('viendo lo ordenado y al día, Ordenar se vuelve "Ordenado" apagado', async
   expect((await ui.find({ key: 'ordenar' }))?.props.label).toBe('Ordenar')
   await ui.unmount()
 })
+
+test('al guardar una tabla resaltada, la nota guarda la tabla en Markdown', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  engine(on, () => 'Plan\tPrecio\nBásico\t$5\nPro\t$12')
+  on('session.messages', () => ({
+    value: [
+      {
+        role: 'assistant',
+        text: 'Estos son los planes:\n\n| Plan | Precio |\n| --- | ---: |\n| **Básico** | $5 |\n| Pro | $12 |\n\nElige uno.',
+        toolUses: [],
+      },
+    ],
+  }))
+  await start($)
+  await clock.advance(1000)
+
+  const ui = await $.ui.mount({ ...ABIERTA, surface: 'desktop' })
+  await ui.press({ key: 'guardar-seleccion' })
+  expect(await notas(ui)).toContain('| Plan | Precio |\n| --- | ---: |\n| **Básico** | $5 |\n| Pro | $12 |')
+  await ui.unmount()
+})
