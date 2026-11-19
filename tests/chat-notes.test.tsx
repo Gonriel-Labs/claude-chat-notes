@@ -227,6 +227,7 @@ test('el lápiz edita un apunte y lo guarda', async ($, on) => {
   const ui = await $.ui.mount({ ...ABIERTA, surface: 'desktop' })
   const lapiz = (await ui.findAll({ type: 'Button' })).map(b => b.key ?? '').find(k => k.startsWith('editar-'))!
   await ui.press({ key: lapiz })
+  await ui.press({ key: 'editar-todo' })
   const editor = (await ui.findAll({ type: 'Input' }))[0]!
   await ui.input({ key: editor.key!, text: 'Texto corregido', kind: 'submit' })
   expect(await hayNota(ui, /Texto corregido/)).toBe(true)
@@ -440,5 +441,44 @@ test('al guardar una tabla resaltada, la nota guarda la tabla en Markdown', asyn
   const ui = await $.ui.mount({ ...ABIERTA, surface: 'desktop' })
   await ui.press({ key: 'guardar-seleccion' })
   expect(await notas(ui)).toContain('| Plan | Precio |\n| --- | ---: |\n| **Básico** | $5 |\n| Pro | $12 |')
+  await ui.unmount()
+})
+
+test('al editar, la vista previa muestra lo escrito ya formateado', async ($, on) => {
+  engine(on, undefined, ['Texto viejo'])
+  await start($)
+
+  const ui = await $.ui.mount({ ...ABIERTA, surface: 'desktop' })
+  const lapiz = (await ui.findAll({ type: 'Button' })).map(b => b.key ?? '').find(k => k.startsWith('editar-'))!
+  await ui.press({ key: lapiz })
+  await ui.press({ key: 'editar-todo' })
+  const editor = (await ui.findAll({ type: 'Input' }))[0]!
+  await ui.input({ key: editor.key!, text: '## Título nuevo - punto', kind: 'change' })
+  expect(await notas(ui)).toContain('## Título nuevo - punto')
+  await ui.unmount()
+})
+
+test('al editar, solo el párrafo elegido se abre en Markdown y el resto sigue formateado', async ($, on) => {
+  const lineas = (p: string) => ['## Plan', '', p, '', '- punto uno', '- punto dos'].join('\n')
+  engine(on, undefined, [lineas('Primer párrafo con **negrita**.')])
+  await start($)
+
+  const ui = await $.ui.mount({ ...ABIERTA, surface: 'desktop' })
+  const lapiz = (await ui.findAll({ type: 'Button' })).map(b => b.key ?? '').find(k => k.startsWith('editar-n'))!
+  await ui.press({ key: lapiz })
+  expect(await ui.find({ type: 'Input' })).toBeFalsy()
+  expect(await notas(ui)).toContain('Primer párrafo con **negrita**.')
+
+  const lapices = (await ui.findAll({ type: 'Button' })).map(b => b.key ?? '').filter(k => k.startsWith('editar-bloque-'))
+  expect(lapices.length).toBe(4)
+  await ui.press({ key: lapices[1]! })
+  const editor = (await ui.findAll({ type: 'Input' }))[0]!
+  expect(editor.props.value).toBe('Primer párrafo con **negrita**.')
+  expect(await notas(ui)).toContain('## Plan')
+  expect(await notas(ui)).toContain('- punto uno')
+  await ui.input({ key: editor.key!, text: 'Párrafo *corregido*.', kind: 'submit' })
+
+  await ui.press({ key: 'terminar-edicion' })
+  expect(await notas(ui)).toContain(lineas('Párrafo *corregido*.'))
   await ui.unmount()
 })

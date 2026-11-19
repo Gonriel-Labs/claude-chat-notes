@@ -13,11 +13,19 @@ Un mod que te deja guardar fragmentos de las respuestas de Claude como notas, en
 
 ## Qué hace
 
-- **Guarda con su formato**: aunque al resaltar solo se copia texto plano, la nota recupera los títulos, negritas y viñetas de la respuesta original.
+- **Guarda con su formato**: aunque al resaltar solo se copia texto plano, la nota recupera los títulos, negritas, viñetas y tablas de la respuesta original.
 - **Ordenar**: junta notas sueltas en un documento por temas. No inventa ni rellena: conserva tus datos, números y comandos tal cual.
 - **Editar, copiar y borrar** cada nota desde su tarjeta. Si borras una por error, **↶ Deshacer** la recupera.
 - **Copiar y exportar lo ordenado**: **Copiar** lo pasa al portapapeles y la flecha **↑** lo guarda como archivo `.md` donde elijas, empezando en la carpeta del proyecto.
 - **Avisa si se acabó tu cupo**: si llegaste al límite de uso de tu plan, **Ordenar** te dice a qué hora se libera en vez de quedarse esperando.
+
+### Editar una nota
+
+Pulsa **Editar** y toca el **✎** junto a la parte que quieras cambiar: solo esa viñeta, párrafo o tabla se abre en Markdown, y el resto de la nota sigue formateado. Las tablas muestran una vista previa que cambia mientras escribes. Para cambios grandes, **Editar todo** abre la nota completa.
+
+<p align="center">
+  <img src="docs/editar.svg" width="480" alt="Una nota con dos viñetas y una tabla de planes y precios. Se pulsa Editar y aparece un lápiz junto a cada parte. Al tocar el de la primera viñeta, solo esa línea se abre en Markdown y el precio del plan Pro cambia de 12 a 15 dólares; el resto sigue formateado. Luego se toca el lápiz de la tabla: se abre en Markdown con su vista previa debajo, que muestra el nuevo precio mientras se escribe. Al pulsar Terminar, la nota queda actualizada.">
+</p>
 
 ## Instalación
 
@@ -74,10 +82,11 @@ El botón **📝 Apuntes** aparece en las sesiones que abras después de instala
 claude plugin uninstall chat-notes
 ```
 
-## Regenerar la animación
+## Regenerar las animaciones
 
-La animación de `docs/demo.svg` se arma con los mismos colores y textos del panel real. Si cambias el panel, vuelve a generarla (necesita Python 3):
+Las animaciones de `docs/` se arman con los mismos colores y textos del panel real. Si cambias el panel, vuelve a generarlas (necesita Python 3):
 
 ```bash
 python tools/escena_demo.py
+python tools/escena_editar.py
 ```

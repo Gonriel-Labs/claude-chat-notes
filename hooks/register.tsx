@@ -254,7 +254,13 @@ let borrador: string | undefined
 
 async function editar($: EngineInterface, id: string | undefined) {
   borrador = undefined
-  await update($, libreta, (l): Libreta => ({ ...l, editando: id }))
+  await update($, libreta, (l): Libreta => ({ ...l, editando: id, vistaPrevia: undefined, bloque: undefined, todo: false }))
+}
+
+// Lo que se va escribiendo, para dibujarlo ya formateado bajo el editor.
+async function verBorrador($: EngineInterface, texto: string) {
+  borrador = texto
+  await update($, libreta, (l): Libreta => ({ ...l, vistaPrevia: texto }))
 }
 
 async function guardarEdicion($: EngineInterface, texto?: string) {
@@ -265,9 +271,82 @@ async function guardarEdicion($: EngineInterface, texto?: string) {
   await save($, x => ({
     ...x,
     editando: undefined,
+    vistaPrevia: undefined,
+    todo: false,
     items: nuevo && id ? x.items.map(it => (it.id === id ? { ...it, text: nuevo, titulo: undefined } : it)) : x.items,
   }))
   if (nuevo && id) void titular($, id, nuevo)
+}
+
+// Parte una nota en bloques (un título, un párrafo, una viñeta, una tabla, un
+// bloque de código o una línea en blanco), de modo que unirlos con saltos de
+// línea devuelve el texto exacto. Así se edita un bloque y el resto se ve
+// formateado.
+const esTitulo = (l: string) => /^\s{0,3}#{1,6}\s/.test(l)
+const esViñeta = (l: string) => /^\s{0,3}(?:[-*+]|\d+[.)])\s/.test(l)
+const esTabla = (l: string) => /^\s*\|/.test(l)
+const esCerco = (l: string) => /^\s*(```|~~~)/.test(l)
+
+function partir(texto: string) {
+  const lineas = texto.split('\n')
+  const bloques: string[] = []
+  let i = 0
+  while (i < lineas.length) {
+    const l = lineas[i]!
+    let j = i + 1
+    if (!l.trim() || esTitulo(l)) {
+      // Una sola línea.
+    } else if (esCerco(l)) {
+      while (j < lineas.length && !esCerco(lineas[j]!)) j++
+      j = Math.min(j + 1, lineas.length)
+    } else if (esTabla(l)) {
+      while (j < lineas.length && esTabla(lineas[j]!)) j++
+    } else if (esViñeta(l)) {
+      while (j < lineas.length && /^\s{2,}\S/.test(lineas[j]!) && !esViñeta(lineas[j]!)) j++
+    } else {
+      while (j < lineas.length) {
+        const s = lineas[j]!
+        if (!s.trim() || esTitulo(s) || esViñeta(s) || esTabla(s) || esCerco(s)) break
+        j++
+      }
+    }
+    bloques.push(lineas.slice(i, j).join('\n'))
+    i = j
+  }
+
+  return bloques
+}
+
+async function editarBloque($: EngineInterface, bloque: number | undefined) {
+  borrador = undefined
+  await update($, libreta, (l): Libreta => ({ ...l, bloque, vistaPrevia: undefined }))
+}
+
+async function guardarBloque($: EngineInterface, texto?: string) {
+  const l = await read($, libreta)
+  const it = l.items.find(x => x.id === l.editando)
+  const i = l.bloque
+  const nuevo = texto ?? borrador
+  borrador = undefined
+  if (!it || i === undefined || nuevo === undefined) {
+    await update($, libreta, (x): Libreta => ({ ...x, bloque: undefined, vistaPrevia: undefined }))
+    return
+  }
+  const bloques = partir(it.text)
+  bloques[i] = nuevo.replace(/\s+$/, '')
+  const text = bloques.join('\n').trim()
+  await save($, x => ({
+    ...x,
+    bloque: undefined,
+    vistaPrevia: undefined,
+    items: x.items.map(y => (y.id === it.id ? { ...y, text, titulo: undefined } : y)),
+  }))
+  void titular($, it.id, text)
+}
+
+async function editarTodo($: EngineInterface) {
+  borrador = undefined
+  await update($, libreta, (l): Libreta => ({ ...l, bloque: undefined, todo: true, vistaPrevia: undefined }))
 }
 
 async function deshacerBorrado($: EngineInterface) {
@@ -650,7 +729,7 @@ export const register: Register = on => {
               flexDirection="column"
               hover={{ scope: `nota-${it.id}`, borderColor: BLUE }}
             >
-              {l.editando === it.id ? (
+              {l.editando === it.id && l.todo ? (
                 <Box flexDirection="column" gap={1}>
                   <Input
                     key={`editor-${it.id}`}
@@ -658,15 +737,69 @@ export const register: Register = on => {
                     rows={8}
                     autoFocus
                     submitLabel="guardar"
-                    onInput={v => {
-                      borrador = v
-                    }}
+                    onInput={v => void verBorrador($, v)}
                     onSubmit={v => void guardarEdicion($, v)}
                   />
+                  <Text color={MUTED}>Vista previa</Text>
+                  <Box borderStyle="round" borderColor={CARD_BORDER} paddingX={1} flexDirection="column">
+                    <Markdown text={l.vistaPrevia ?? it.text} />
+                  </Box>
                   <Box flexDirection="row" gap={1}>
                     <Button key="guardar-edicion" variant="primary" label="Guardar" onPress={() => void guardarEdicion($)} />
                     <Button key="cancelar-edicion" variant="secondary" label="Cancelar" onPress={() => void editar($, undefined)} />
                   </Box>
+                </Box>
+              ) : l.editando === it.id ? (
+                <Box flexDirection="column" gap={1}>
+                  {l.bloque === undefined && <Text color={MUTED}>Toca ✎ junto al párrafo que quieras cambiar.</Text>}
+                  {partir(it.text).map((bloque, i) =>
+                    !bloque.trim() ? null : l.bloque === i ? (
+                      <Box key={`bloque-${it.id}-${i}`} flexDirection="column" gap={1}>
+                        <Input
+                          key={`editor-bloque-${it.id}-${i}`}
+                          value={bloque}
+                          rows={Math.max(2, bloque.split('\n').length + 1)}
+                          autoFocus
+                          submitLabel="listo"
+                          onInput={v => void verBorrador($, v)}
+                          onSubmit={v => void guardarBloque($, v)}
+                        />
+                        {esTabla(bloque) && (
+                          <>
+                            <Text color={MUTED}>Vista previa</Text>
+                            <Box borderStyle="round" borderColor={CARD_BORDER} paddingX={1} flexDirection="column">
+                              <Markdown text={l.vistaPrevia ?? bloque} />
+                            </Box>
+                          </>
+                        )}
+                        <Box flexDirection="row" gap={1}>
+                          <Button key="listo-bloque" variant="primary" label="Listo" onPress={() => void guardarBloque($)} />
+                          <Button key="cancelar-bloque" variant="secondary" label="Cancelar" onPress={() => void editarBloque($, undefined)} />
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Box key={`bloque-${it.id}-${i}`} flexDirection="row" alignItems="flex-start" gap={1}>
+                        <Box flexGrow={1} flexShrink={1} minWidth={0}>
+                          <Markdown text={bloque} />
+                        </Box>
+                        <Box flexShrink={0}>
+                          <Button
+                            key={`editar-bloque-${it.id}-${i}`}
+                            label="✎"
+                            plain
+                            dimColor
+                            onPress={() => void editarBloque($, i)}
+                          />
+                        </Box>
+                      </Box>
+                    ),
+                  )}
+                  {l.bloque === undefined && (
+                    <Box flexDirection="row" gap={1}>
+                      <Button key="terminar-edicion" variant="primary" label="Terminar" onPress={() => void editar($, undefined)} />
+                      <Button key="editar-todo" variant="secondary" label="Editar todo" onPress={() => void editarTodo($)} />
+                    </Box>
+                  )}
                 </Box>
               ) : (
                 <Box flexDirection="column">

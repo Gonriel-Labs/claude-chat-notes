@@ -27,7 +27,7 @@ CLARO, TENUE, PLACEHOLDER = "#ECEAE3", "#A6A49C", "#8C8A84"
 SELECCION = "#1D3F8A"
 PRIMARIO, PRIMARIO_TXT = "#F4F3EE", "#1C1C1B"
 SECUNDARIO, SECUNDARIO_TXT = "#3A3937", "#D6D4CC"
-FUENTE = "'Segoe UI',system-ui,-apple-system,sans-serif"
+FUENTE = "'Segoe UI','Segoe UI Emoji','Apple Color Emoji',system-ui,-apple-system,sans-serif"
 MONO = "Consolas,Menlo,monospace"
 
 W, H = 780, 470

@@ -23,6 +23,11 @@ export type Libreta = {
   copiado?: 'ordenado' | 'recortes'
   // El apunte que se está editando.
   editando?: string
+  // Lo que se va escribiendo al editar, para verlo formateado.
+  vistaPrevia?: string
+  // Al editar: el bloque abierto, o todo el texto en Markdown.
+  bloque?: number
+  todo?: boolean
   // El archivo .md que se acaba de guardar, para avisarlo un momento.
   exportado?: string
   // La nota que se acaba de copiar con su botón.
