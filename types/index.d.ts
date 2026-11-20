@@ -1,5 +1,9 @@
 export type Apunte = { id: string; text: string; at: number; titulo?: string }
 
+// Las notas de un chat sin carpeta que ya se borró: se guardan hasta que las
+// traigas a otro chat o las borres.
+export type Huerfana = { key: string; nombre: string; notas: number; desde: number }
+
 export type Libreta = {
   project: string
   items: Apunte[]
@@ -32,6 +36,8 @@ export type Libreta = {
   exportado?: string
   // La nota que se acaba de copiar con su botón.
   notaCopiada?: string
+  // Notas de chats borrados que todavía se pueden traer.
+  huerfanas?: Huerfana[]
 }
 
 declare module 'claude-code' {

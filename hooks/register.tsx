@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderChildren } from 'claude-code'
 
-import type { Apunte, Libreta } from '../types'
+import type { Apunte, Huerfana, Libreta } from '../types'
 
 const MODEL = 'haiku'
 const PANE = 'apuntes'
@@ -13,7 +13,7 @@ let ultimoLugar: string | undefined
 const libreta = atom(
   { plugin: 'chat-notes', key: 'libreta' } as const,
   { project: '', items: [], view: 'recortes', busy: false, abierta: false } as Libreta,
-  { shape: 'libreta-6' },
+  { shape: 'libreta-7' },
 )
 
 // La misma paleta que la banda de uso: gris para lo secundario, coral para la
@@ -44,7 +44,10 @@ let vistaDesde = 0
 let caducada: string | undefined
 
 // Lo que se guarda entre sesiones, por carpeta de proyecto.
-type Guardado = Pick<Libreta, 'items' | 'ordered' | 'orderedAt' | 'orderedCount' | 'tituloGeneral'>
+type Guardado = Pick<Libreta, 'items' | 'ordered' | 'orderedAt' | 'orderedCount' | 'tituloGeneral'> & {
+  // Desde cuándo falta la carpeta de su chat (un chat sin carpeta borrado).
+  huerfanoDesde?: number
+}
 
 const SYSTEM = [
   'Eres un asistente que ordena apuntes de estudio y de proyecto.',
@@ -540,22 +543,101 @@ async function exportar($: EngineInterface) {
   exportadoTimer = $.clock.after(2500, () => void update($, libreta, (x): Libreta => ({ ...x, exportado: undefined })))
 }
 
-// Borra los apuntes de chats sin proyecto que ya se borraron: la app crea una
-// carpeta temporal para cada uno y la quita al borrar el chat. Solo mira esas
-// carpetas temporales, nunca las de un proyecto (un disco desconectado no es
-// un proyecto borrado).
-async function limpiarHuerfanos($: EngineInterface) {
+// La app crea una carpeta temporal para cada chat sin proyecto y la quita al
+// borrar el chat. Solo se miran esas carpetas, nunca las de un proyecto (un
+// disco desconectado no es un proyecto borrado).
+const esCarpetaTemporal = (dir: string) => /[\\/]scratch-workspaces[\\/]/i.test(dir)
+
+// Las últimas tres partes de la carpeta temporal de un chat: no cambian aunque
+// la app mueva todas sus carpetas a otro lugar.
+const colaTemporal = (dir: string) =>
+  dir.toLowerCase().split(/[\\/]+/).filter(Boolean).slice(-3).join('/')
+
+async function existe($: EngineInterface, dir: string) {
+  try {
+    await $.fs.stat(dir)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Las notas guardadas de chats temporales cuya carpeta ya no existe.
+async function huerfanasGuardadas($: EngineInterface) {
   const propia = storeKey(cwd)
+  const halladas: { key: string; dir: string; g: Guardado }[] = []
   for (const key of await $.store.keys()) {
     if (!key.startsWith('libreta:') || key === propia) continue
     const dir = key.slice('libreta:'.length)
-    if (!/[\\/]scratch-workspaces[\\/]/.test(dir)) continue
-    try {
-      await $.fs.stat(dir)
-    } catch {
-      await $.store.delete(key)
-    }
+    if (!esCarpetaTemporal(dir) || (await existe($, dir))) continue
+    const g = (await $.store.get(key)) as Guardado | undefined
+    if (g) halladas.push({ key, dir, g })
   }
+
+  return halladas
+}
+
+// Si la app movió sus carpetas, este mismo chat tiene ahora otra ruta: trae
+// las notas que quedaron guardadas con la ruta vieja.
+async function mudarNotas($: EngineInterface) {
+  if (!esCarpetaTemporal(cwd)) return
+  const propia = (await $.store.get(storeKey(cwd))) as Guardado | undefined
+  if (propia?.items?.length) return
+  const cola = colaTemporal(cwd)
+  const vieja = (await huerfanasGuardadas($))
+    .filter(x => colaTemporal(x.dir) === cola && x.g.items?.length)
+    .sort((x, y) => y.g.items.length - x.g.items.length)[0]
+  if (!vieja) return
+  const { huerfanoDesde: _, ...g } = vieja.g
+  await $.store.set(storeKey(cwd), g)
+  await $.store.delete(vieja.key)
+}
+
+const nombreHuerfana = (g: Guardado) =>
+  g.tituloGeneral ??
+  (g.items
+    .map(it => it.titulo)
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' · ') ||
+    'Chat sin carpeta')
+
+// Las notas de un chat borrado nunca se borran solas: quedan en el panel, en
+// "De chats borrados", hasta que las traigas a otro chat o las borres tú.
+async function buscarHuerfanas($: EngineInterface) {
+  const quedan: Huerfana[] = []
+  for (const { key, g } of await huerfanasGuardadas($)) {
+    if (!g.items?.length) {
+      await $.store.delete(key)
+      continue
+    }
+    const desde = g.huerfanoDesde ?? Date.now()
+    if (g.huerfanoDesde === undefined) await $.store.set(key, { ...g, huerfanoDesde: desde })
+    quedan.push({ key, nombre: nombreHuerfana(g), notas: g.items.length, desde })
+  }
+  await update($, libreta, (x): Libreta => ({ ...x, huerfanas: quedan.sort((m, n) => n.desde - m.desde) }))
+}
+
+const fecha = (at: number) => new Date(at).toLocaleDateString('es', { day: 'numeric', month: 'short' })
+
+// Borra para siempre las notas de un chat borrado.
+async function borrarHuerfana($: EngineInterface, key: string) {
+  await $.store.delete(key)
+  await update($, libreta, (x): Libreta => ({ ...x, huerfanas: (x.huerfanas ?? []).filter(y => y.key !== key) }))
+}
+
+// Trae a este chat las notas de un chat borrado, después de las propias.
+async function traerHuerfana($: EngineInterface, key: string) {
+  const g = (await $.store.get(key)) as Guardado | undefined
+  const traidas = g?.items ?? []
+  await save($, (x): Libreta => ({
+    ...x,
+    items: [...x.items, ...traidas.filter(it => !x.items.some(y => y.id === it.id))],
+    huerfanas: (x.huerfanas ?? []).filter(x => x.key !== key),
+  }))
+  await $.store.delete(key)
+  void $.ui.toast(traidas.length === 1 ? 'Se trajo 1 nota' : `Se trajeron ${traidas.length} notas`)
 }
 
 // Abre el panel de apuntes si está cerrado y lo cierra si está a la vista.
@@ -575,6 +657,7 @@ async function alternarPanel($: EngineInterface) {
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     cwd = e.cwd
+    await mudarNotas($).catch(() => undefined)
     const kept = (await $.store.get(storeKey(cwd))) as Guardado | undefined
     await update($, libreta, (): Libreta => ({
       project: projectName(cwd),
@@ -596,7 +679,7 @@ export const register: Register = on => {
     vigia?.cancel()
     vigia = $.clock.every(VIGILAR_MS, () => void vigilar($))
 
-    void limpiarHuerfanos($).catch(() => undefined)
+    void buscarHuerfanas($).catch(() => undefined)
 
     // Los apuntes de antes, que aún no tienen título.
     for (const it of (await read($, libreta)).items) {
@@ -901,6 +984,43 @@ export const register: Register = on => {
           </Box>
         )}
         {cuerpo}
+        {l.view !== 'ordenado' && (l.huerfanas ?? []).length > 0 && (
+          <Box flexDirection="column" gap={1}>
+            <Text color={MUTED} bold>
+              DE CHATS BORRADOS
+            </Text>
+            {(l.huerfanas ?? []).map(hu => (
+              <Box
+                key={`huerfana-${hu.key}`}
+                borderStyle="round"
+                borderColor={CARD_BORDER}
+                paddingX={1}
+                flexDirection="column"
+              >
+                <Text bold wrap="truncate-end">
+                  {hu.nombre.toLocaleUpperCase('es')}
+                </Text>
+                <Text color={MUTED}>
+                  {`${hu.notas} ${hu.notas === 1 ? 'nota' : 'notas'} · chat borrado el ${fecha(hu.desde)}`}
+                </Text>
+                <Box flexDirection="row" gap={1}>
+                  {globo(`traer-${hu.key}`, 'Las pasa a este chat', 'izq', <Button
+                    key={`traer-${hu.key}`}
+                    variant="secondary"
+                    label="Traer aquí"
+                    onPress={() => void traerHuerfana($, hu.key)}
+                  />)}
+                  {globo(`olvidar-${hu.key}`, 'Las borra para siempre', 'izq', <Button
+                    key={`olvidar-${hu.key}`}
+                    variant="secondary"
+                    label="🗑"
+                    onPress={() => void borrarHuerfana($, hu.key)}
+                  />)}
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        )}
       </Box>
     )
   })

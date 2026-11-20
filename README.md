@@ -75,7 +75,7 @@ El botón **📝 Apuntes** aparece en las sesiones que abras después de instala
 ## Dónde quedan tus notas
 
 - Se guardan en tu computadora, separadas por carpeta de proyecto. Todos los chats abiertos en la misma carpeta comparten las mismas notas.
-- Los chats sin carpeta tienen sus propias notas, que se borran solas cuando borras ese chat.
+- Los chats sin carpeta tienen sus propias notas. Nunca se borran solas: si borras ese chat, sus notas aparecen al final del panel en **De chats borrados**. **Traer aquí** las pasa al chat que tengas abierto y 🗑 las borra para siempre.
 - Para vaciar las notas de un proyecto de una vez, escribe `/apuntes vaciar`.
 - Solo salen de tu computadora cuando pulsas **Ordenar** o se crea un título: entonces se envían a Claude, como cualquier mensaje tuyo.
 

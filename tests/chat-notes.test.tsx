@@ -311,13 +311,8 @@ test('el botón de copiar de una nota copia solo esa nota', async ($, on) => {
   await ui.unmount()
 })
 
-test('al abrir, borra los apuntes de chats temporales que ya no existen y deja los de proyectos', async ($, on) => {
-  const temporal = 'libreta:c:/usuarios/ana/appdata/roaming/claude/scratch-workspaces/a/b/scratch-viejo'
-  const proyecto = 'libreta:m:/otro/proyecto'
-  const data: Record<string, unknown> = {
-    [temporal]: { items: [{ id: 'a', text: 'viejo', at: 0 }] },
-    [proyecto]: { items: [{ id: 'b', text: 'del proyecto', at: 0 }] },
-  }
+// Un almacén de prueba con las notas de varios chats; existen las carpetas de `vivas`.
+const almacen = (on: On, data: Record<string, unknown>, vivas: string[] = []) => {
   on('store.get', (_, e) => ({ value: data[e.key] }))
   on('store.set', (_, e) => {
     data[e.key] = e.value
@@ -332,15 +327,78 @@ test('al abrir, borra los apuntes de chats temporales que ya no existen y deja l
   on('store.keys', () => ({ value: Object.keys(data) }))
   on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('ui.selection', () => ({ value: undefined }))
-  on('fs.stat', () => {
+  on('ui.toast', () => ({ value: undefined }))
+  on('fs.stat', (_, e) => {
+    if (vivas.some(v => v.toLowerCase() === e.path.toLowerCase())) return { value: { isDirectory: true, size: 0, mtimeMs: 0 } }
     throw new Error('ENOENT')
   })
   on('session.start', (_, e) => ({ cwd: e.cwd }))
-  await start($)
-  await new Promise(r => setTimeout(r, 20))
+}
 
-  expect(Object.keys(data)).not.toContain(temporal)
-  expect(Object.keys(data)).toContain(proyecto)
+const TEMPORAL = 'libreta:c:/usuarios/ana/appdata/roaming/claude/scratch-workspaces/a/b/scratch-viejo'
+const PROYECTO = 'libreta:m:/otro/proyecto'
+const esperar = () => new Promise(r => setTimeout(r, 20))
+
+test('las notas de un chat borrado se quedan en el panel y se pueden traer', async ($, on) => {
+  const data: Record<string, unknown> = {
+    [TEMPORAL]: { items: [{ id: 'a', text: 'viejo', at: 0, titulo: 'Idea vieja' }] },
+    [PROYECTO]: { items: [{ id: 'b', text: 'del proyecto', at: 0 }] },
+  }
+  almacen(on, data)
+  await start($)
+  await esperar()
+
+  expect(Object.keys(data)).toContain(TEMPORAL)
+  expect(Object.keys(data)).toContain(PROYECTO)
+  expect(typeof (data[TEMPORAL] as { huerfanoDesde?: number }).huerfanoDesde).toBe('number')
+
+  const ui = await $.ui.mount({ ...ABIERTA, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /DE CHATS BORRADOS/ }))?.text).toBeTruthy()
+  expect((await ui.find({ type: 'Text', text: /1 nota · chat borrado el/ }))?.text).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /DEL PROYECTO/ })).toBeFalsy()
+
+  const traer = (await ui.findAll({ type: 'Button' })).find(x => /^traer-/.test(x.key ?? ''))
+  await ui.press({ key: traer!.key! })
+  await esperar()
+  expect(Object.keys(data)).not.toContain(TEMPORAL)
+  expect(await hayNota(ui, /viejo/)).toBe(true)
+  expect(await ui.find({ type: 'Text', text: /DE CHATS BORRADOS/ })).toBeFalsy()
+  await ui.unmount()
+})
+
+test('las notas de un chat borrado no se borran solas, solo con su papelera', async ($, on) => {
+  const viejo = 'libreta:c:/x/scratch-workspaces/a/b/scratch-1'
+  const data: Record<string, unknown> = {
+    [viejo]: { items: [{ id: 'a', text: 'a', at: 0 }], huerfanoDesde: Date.now() - 400 * 24 * 60 * 60 * 1000 },
+  }
+  almacen(on, data)
+  await start($)
+  await esperar()
+  expect(Object.keys(data)).toContain(viejo)
+
+  const ui = await $.ui.mount({ ...ABIERTA, surface: 'desktop' })
+  await ui.press({ key: `olvidar-${viejo}` })
+  await esperar()
+  expect(Object.keys(data)).not.toContain(viejo)
+  expect(await ui.find({ type: 'Text', text: /DE CHATS BORRADOS/ })).toBeFalsy()
+  await ui.unmount()
+})
+
+test('si la app mueve la carpeta del chat, sus notas lo siguen', async ($, on) => {
+  const nueva = String.raw`C:\usuarios\ana\appdata\local\claude-data\scratch-workspaces\a\b\scratch-viejo`
+  const data: Record<string, unknown> = {
+    [TEMPORAL]: { items: [{ id: 'a', text: 'mi nota de siempre', at: 0 }] },
+  }
+  almacen(on, data, [nueva])
+  await $.session.start({ cwd: nueva, surface: 'desktop', isInteractive: true })
+  await esperar()
+
+  expect(Object.keys(data)).not.toContain(TEMPORAL)
+  expect(Object.keys(data)).toContain(`libreta:${nueva.toLowerCase()}`)
+  const ui = await $.ui.mount({ ...ABIERTA, surface: 'desktop' })
+  expect(await hayNota(ui, /mi nota de siempre/)).toBe(true)
+  expect(await ui.find({ type: 'Text', text: /DE CHATS BORRADOS/ })).toBeFalsy()
+  await ui.unmount()
 })
 
 test('sin cupo de uso, Ordenar avisa el límite y no llama al modelo', async ($, on) => {
